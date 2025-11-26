@@ -1,0 +1,6 @@
+# .gitignore file content
+# Keep node modules out of the repository
+node_modules/
+
+# SECURE: NEVER COMMIT ENVIRONMENT VARIABLES
+.env
