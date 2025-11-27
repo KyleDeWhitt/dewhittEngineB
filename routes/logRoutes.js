@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth'); 
-const Log = require('../models/Log'); // Import the Log model
+const Log = require('../models/Log.js'); // Import the Log model
 
 // --- 1. CREATE Log ---
 // @route  POST /api/logs

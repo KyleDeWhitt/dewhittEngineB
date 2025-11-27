@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth'); 
-const Goal = require('../models/Goal'); // Import the Goal model
+const Goal = require('../models/Goal.js'); // Import the Goal model
 
 // @route  POST /api/goals
 // @desc   Create a new goal for the authenticated user
