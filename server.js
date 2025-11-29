@@ -14,9 +14,9 @@ const jwt = require('jsonwebtoken');
 const { connectDB } = require('./config/database'); 
 
 // 👇 MODEL IMPORT FIXES BASED ON YOUR FILE NAMES
-const User = require('./models/User.js');  // Kept Capital 'U' (Matches file)
-const Goal = require('./models/Goal.js');  // Changed to lowercase 'g'
-const Log = require('./models/Log.js');    // Changed to lowercase 'l'
+const User = require('./models/User.js');  
+const Goal = require('./models/Goal.js'); 
+const Log = require('./models/Log.js');    
 
 const { protect } = require('./middleware/auth'); 
 const goalRoutes = require('./routes/goalRoutes'); 
@@ -27,9 +27,15 @@ const app = express();
 const PORT = 3000; 
 
 // ------------------------------------------------------------------
-// --- 1. Middleware Setup ---
+// --- 1. Middleware Setup (FIXED) ---
 // ------------------------------------------------------------------
-origin: ['http://localhost:5173', 'https://shiny-croquembouche-2237d6.netlify.app']
+
+// Allow requests from both your local frontend AND your Netlify production frontend
+app.use(cors({
+    origin: ['http://localhost:5173', 'https://shiny-croquembouche-2237d6.netlify.app'],
+    credentials: true
+}));
+
 app.use(express.json());
 
 // ------------------------------------------------------------------
