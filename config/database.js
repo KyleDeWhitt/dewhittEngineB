@@ -8,18 +8,20 @@ const { Sequelize } = require('sequelize');
 // 1. Define and Export the Sequelize Instance Immediately
 // ----------------------------------------------------------------------
 const sequelize = new Sequelize(
-    // Database Name
     process.env.DB_NAME,     
-    // Database User
     process.env.DB_USER,   
-    // Database Password
     process.env.DB_PASSWORD, 
     {
         host: process.env.DB_HOST,
         dialect: 'mysql', 
         logging: false, 
         dialectOptions: { 
-            connectTimeout: 60000 
+            connectTimeout: 60000,
+            // 👇 CRITICAL SECURITY FIX FOR PRODUCTION 👇
+            ssl: {
+                require: true, 
+                rejectUnauthorized: false // This is usually required for Hostinger/Shared hosting
+            }
         }
     }
 );
@@ -29,20 +31,17 @@ const sequelize = new Sequelize(
 // ----------------------------------------------------------------------
 const connectDB = async () => {
     try {
-        // Authenticate the connection
         await sequelize.authenticate();
         console.log('Database connection has been established successfully.');
         
-        // Using { alter: true } for non-destructive schema changes during development
-        // This will update tables without dropping data.
+        // ⚠️ NOTE: In a massive scale app, we would use 'Migrations' instead of alter:true.
+        // But for your MVP launch, this is acceptable and much easier to manage.
         await sequelize.sync({ alter: true }); 
         
-        // Corrected log message to reflect synchronization, not dropping
         console.log('Database synchronization complete. Tables updated, data preserved.');
 
     } catch (error) {
         console.error('Unable to connect to the database:', error);
-        // Rethrow the error so server.js can handle the failure
         throw error; 
     }
 };
