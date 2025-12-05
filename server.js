@@ -203,6 +203,25 @@ app.post('/api/create-checkout-session', protect, async (req, res, next) => {
     }
 });
 
+// 👇 NEW ROUTE: Client Dashboard Data (THIS WAS MISSING)
+// This fetches the Project associated with the logged-in User
+app.get('/api/my-project', protect, async (req, res) => {
+    try {
+        const Project = require('./models/Project'); 
+        
+        const project = await Project.findOne({ where: { userId: req.user.id } });
+        
+        if (!project) {
+            return res.status(404).json({ message: 'No project found.' });
+        }
+        
+        res.json(project);
+    } catch (err) {
+        console.error("Project Fetch Error:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
 // --- 👇 SECRET ADMIN PROMOTION ROUTE (Remove after use) ---
 app.get('/make-admin/:email', async (req, res) => {
   try {
@@ -242,9 +261,6 @@ const startServer = async () => {
         await connectDB(); 
 
         if (sequelize) {
-            // ⚠️ UPDATED: Changed from 'force: true' to 'alter: true'.
-            // 'force: true' deletes all data on every restart. 
-            // 'alter: true' keeps data but updates table structure.
             await sequelize.sync({ alter: true });
             console.log('✅ Agency Database Ready! (All tables synced)');
         }
