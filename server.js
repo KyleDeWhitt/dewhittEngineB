@@ -155,7 +155,7 @@ const startServer = async () => {
         await connectDB(); 
 
         if (sequelize) {
-            await sequelize.sync({ force: true });
+            await sequelize.sync({ alter: true });
             console.log('✅ Agency Database Ready! (All tables synced)');
         }
 
