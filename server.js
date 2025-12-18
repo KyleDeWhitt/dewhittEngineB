@@ -5,7 +5,6 @@ const express = require('express');
 const cors = require('cors'); 
 const helmet = require('helmet'); 
 const rateLimit = require('express-rate-limit'); 
-const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
 
 // --- Database Imports ---
@@ -16,7 +15,9 @@ const Project = require('./models/Project.js');
 const { protect } = require('./middleware/auth'); 
 const userRoutes = require('./routes/userRoutes'); 
 const adminRoutes = require('./routes/adminRoutes');
-            
+// 👇 NEW IMPORT
+const authRoutes = require('./routes/authRoutes');
+
 const app = express();
 const PORT = process.env.PORT || 3000; 
 
@@ -27,7 +28,11 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://shiny-croquembouche-2237d6.netlify.app'],
+    origin: [
+        'http://localhost:5173', 
+        'https://shiny-croquembouche-2237d6.netlify.app',
+        process.env.CLIENT_URL // Allow the URL from .env too
+    ],
     credentials: true
 }));
 
@@ -86,97 +91,8 @@ app.use(express.json());
 // --- 5. APP ROUTES ---
 // ------------------------------------------------------------------
 
-// Registration
-app.post('/register', async (req, res, next) => { 
-    try {
-        const { email, password, first_name, last_name, role } = req.body;
-        
-        if (!email || !password || !first_name || !last_name) {
-            return res.status(400).json({ success: false, message: 'All fields are required.' });
-        }
-
-        const existingUser = await User.findOne({ where: { email: email } });
-        if (existingUser) {
-            return res.status(409).json({ success: false, message: 'Email already registered.' });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const newUser = await User.create({
-            email,
-            password: hashedPassword,
-            first_name,
-            last_name,
-            role: role || 'Member'
-        });
-
-        // Auto-create an empty Project for new users
-        await Project.create({
-            userId: newUser.id,
-            name: 'New Project',
-            status: 'Onboarding'
-        });
-
-        const token = jwt.sign(
-            { id: newUser.id, role: newUser.role },
-            process.env.JWT_SECRET, 
-            { expiresIn: '1h' }
-        );
-
-        return res.status(201).json({ 
-            success: true, 
-            message: 'User registered successfully!',
-            token, 
-            user: { 
-                id: newUser.id,
-                name: `${newUser.first_name} ${newUser.last_name}`,
-                role: newUser.role
-            }
-        });
-
-    } catch (error) {
-        next(error); 
-    }
-});
-
-// Login
-app.post('/login', async (req, res, next) => { 
-    try {
-        const { email, password } = req.body;
-        
-        if (!email || !password) {
-            return res.status(400).json({ success: false, message: 'Email and password required.' });
-        }
-
-        const user = await User.findOne({ where: { email } });
-        if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-
-        const token = jwt.sign(
-            { id: user.id, role: user.role },
-            process.env.JWT_SECRET, 
-            { expiresIn: '1h' }
-        );
-
-        return res.json({ 
-            success: true, 
-            message: 'Login successful!',
-            token, 
-            user: { 
-                id: user.id,
-                name: `${user.first_name} ${user.last_name}`,
-                role: user.role,
-                planTier: user.planTier 
-            } 
-        });
-
-    } catch (error) {
-        next(error); 
-    }
-});
+// 👇 NEW: Auth Routes (Login, Register, Verify Email)
+app.use('/api/auth', authRoutes);
 
 // Stripe Checkout Session
 app.post('/api/create-checkout-session', protect, async (req, res, next) => {
@@ -186,7 +102,6 @@ app.post('/api/create-checkout-session', protect, async (req, res, next) => {
             mode: 'subscription',
             line_items: [
                 {
-                    // Ensure this ID is correct in your Stripe Dashboard
                     price: 'price_1SYpvSFPtgePKWbHVDFIdjxa', 
                     quantity: 1,
                 },
@@ -203,39 +118,18 @@ app.post('/api/create-checkout-session', protect, async (req, res, next) => {
     }
 });
 
-// 👇 NEW ROUTE: Client Dashboard Data (THIS WAS MISSING)
-// This fetches the Project associated with the logged-in User
+// Client Dashboard Data
 app.get('/api/my-project', protect, async (req, res) => {
     try {
-        const Project = require('./models/Project'); 
-        
         const project = await Project.findOne({ where: { userId: req.user.id } });
-        
         if (!project) {
             return res.status(404).json({ message: 'No project found.' });
         }
-        
         res.json(project);
     } catch (err) {
         console.error("Project Fetch Error:", err);
         res.status(500).json({ message: 'Server Error' });
     }
-});
-
-// --- 👇 SECRET ADMIN PROMOTION ROUTE (Remove after use) ---
-app.get('/make-admin/:email', async (req, res) => {
-  try {
-    const user = await User.findOne({ where: { email: req.params.email } });
-    if (!user) return res.status(404).send('User not found');
-    
-    // Force update the role
-    user.role = 'admin'; 
-    await user.save();
-    
-    res.send(`👑 Success! ${user.email} is now an Admin. Refresh your dashboard.`);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
 });
 
 // Standard Routes
