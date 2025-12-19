@@ -75,11 +75,17 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
                 stripeCustomerId: session.customer
             }, { where: { id: userId } });
             console.log('✅ User upgraded successfully.');
+            // Respond to Stripe that we received the event
+            res.status(200).send();
         } catch (dbError) {
             console.error('❌ Database update failed inside webhook:', dbError);
+            // Crucially, send a non-200 response to Stripe so it retries
+            return res.status(500).send('Database update failed.');
         }
+    } else {
+        // Handle other event types or ignore
+        res.status(200).send();
     }
-    res.send();
 });
 
 // ------------------------------------------------------------------
@@ -155,8 +161,8 @@ const startServer = async () => {
         await connectDB(); 
 
         if (sequelize) {
-            await sequelize.sync({ alter: true });
-            console.log('✅ Agency Database Ready! (All tables synced)');
+            await sequelize.authenticate();
+            console.log('✅ Agency Database Ready! (Connection verified)');
         }
 
         app.listen(PORT, () => {

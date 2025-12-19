@@ -17,7 +17,7 @@ const adminOnly = (req, res, next) => {
 router.get('/clients', protect, adminOnly, async (req, res) => {
     try {
         const clients = await User.findAll({
-            where: { role: 'Member' }, 
+            where: { role: 'Member' },
             include: [Project], // Join with Project table
             attributes: { exclude: ['password'] }
         });
@@ -39,11 +39,13 @@ router.put('/project/:userId', protect, adminOnly, async (req, res) => {
         });
 
         if (!created) {
-            project.name = name || project.name;
-            project.status = status || project.status;
-            project.progress = progress !== undefined ? progress : project.progress;
-            project.nextInvoiceDate = nextInvoiceDate || project.nextInvoiceDate;
-            project.subscriptionAmount = subscriptionAmount || project.subscriptionAmount;
+            // Only update fields that were actually sent in the request
+            if (name !== undefined) project.name = name;
+            if (status !== undefined) project.status = status;
+            if (progress !== undefined) project.progress = progress;
+            if (nextInvoiceDate !== undefined) project.nextInvoiceDate = nextInvoiceDate;
+            if (subscriptionAmount !== undefined) project.subscriptionAmount = subscriptionAmount;
+            
             await project.save();
         }
 

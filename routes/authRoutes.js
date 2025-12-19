@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); // Built-in Node module for generating random tokens
@@ -20,56 +21,70 @@ const transporter = nodemailer.createTransport({
 // --- 1. REGISTER USER ---
 // @route  POST /api/auth/register
 // @desc   Register user & send verification email
-router.post('/register', async (req, res) => {
-    try {
-        const { email, password, first_name, last_name } = req.body;
+router.post(
+    '/register',
+    [
+        body('first_name', 'First name is required').not().isEmpty(),
+        body('last_name', 'Last name is required').not().isEmpty(),
+        body('email', 'Please include a valid email').isEmail(),
+        body('password', 'Password must be 6 or more characters').isLength({ min: 6 })
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-        // Check if user exists
-        let user = await User.findOne({ where: { email } });
-        if (user) return res.status(400).json({ message: 'User already exists' });
+        try {
+            const { email, password, first_name, last_name } = req.body;
 
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+            // Check if user exists
+            let user = await User.findOne({ where: { email } });
+            if (user) return res.status(400).json({ message: 'User already exists' });
 
-        // Generate Verification Token
-        const verificationToken = crypto.randomBytes(20).toString('hex');
+            // Hash password
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create User (isVerified = false by default)
-        user = await User.create({
-            first_name,
-            last_name,
-            email,
-            password: hashedPassword,
-            verificationToken
-        });
+            // Generate Verification Token
+            const verificationToken = crypto.randomBytes(20).toString('hex');
 
-        // Send Verification Email
-        const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+            // Create User (isVerified = false by default)
+            user = await User.create({
+                first_name,
+                last_name,
+                email,
+                password: hashedPassword,
+                verificationToken
+            });
 
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: user.email,
-            subject: 'Verify your email for Dewhitt App',
-            html: `
-                <h3>Hello ${user.first_name},</h3>
-                <p>Please verify your email by clicking the link below:</p>
-                <a href="${verifyUrl}">Verify Email</a>
-            `
-        };
+            // Send Verification Email
+            const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
-        await transporter.sendMail(mailOptions);
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: user.email,
+                subject: 'Verify your email for Dewhitt App',
+                html: `
+                    <h3>Hello ${user.first_name},</h3>
+                    <p>Please verify your email by clicking the link below:</p>
+                    <a href="${verifyUrl}">Verify Email</a>
+                `
+            };
 
-        res.status(201).json({ 
-            success: true, 
-            message: 'Registration successful! Please check your email to verify your account.' 
-        });
+            await transporter.sendMail(mailOptions);
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error during registration' });
+            res.status(201).json({
+                success: true,
+                message: 'Registration successful! Please check your email to verify your account.'
+            });
+
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ message: 'Server error during registration' });
+        }
     }
-});
+);
 
 // --- 2. VERIFY EMAIL ---
 // @route  GET /api/auth/verify-email
@@ -98,46 +113,58 @@ router.post('/verify-email', async (req, res) => {
 // --- 3. LOGIN USER ---
 // @route  POST /api/auth/login
 // @desc   Authenticate user & get token
-router.post('/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        // Check for user
-        const user = await User.findOne({ where: { email } });
-        if (!user) return res.status(400).json({ message: 'Invalid credentials' });
-
-        // Check Verification Status
-        if (!user.isVerified) {
-            return res.status(401).json({ message: 'Please verify your email before logging in.' });
+router.post(
+    '/login',
+    [
+        body('email', 'Please include a valid email').isEmail(),
+        body('password', 'Password is required').exists()
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
         }
 
-        // Validate Password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+        try {
+            const { email, password } = req.body;
 
-        // Return JWT
-        const token = jwt.sign(
-            { id: user.id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
+            // Check for user
+            const user = await User.findOne({ where: { email } });
+            if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
-        res.json({
-            success: true,
-            token,
-            user: {
-                id: user.id,
-                name: `${user.first_name} ${user.last_name}`,
-                email: user.email,
-                role: user.role,
-                planTier: user.planTier
+            // Check Verification Status
+            if (!user.isVerified) {
+                return res.status(401).json({ message: 'Please verify your email before logging in.' });
             }
-        });
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error during login' });
+            // Validate Password
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+
+            // Return JWT
+            const token = jwt.sign(
+                { id: user.id, role: user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            res.json({
+                success: true,
+                token,
+                user: {
+                    id: user.id,
+                    name: `${user.first_name} ${user.last_name}`,
+                    email: user.email,
+                    role: user.role,
+                    planTier: user.planTier
+                }
+            });
+
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ message: 'Server error during login' });
+        }
     }
-});
+);
 
 module.exports = router;
