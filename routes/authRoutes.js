@@ -7,13 +7,14 @@ const crypto = require('crypto'); // Built-in Node module for generating random 
 const nodemailer = require('nodemailer'); // ⚠️ You need to install this: npm install nodemailer
 const User = require('../models/User');
 
-// --- 📧 EMAIL CONFIGURATION (Replace with your actual provider) ---
-// For testing, you can use Ethereal Email (https://ethereal.email)
-// For production, use SendGrid, Gmail, or AWS SES
+// --- 📧 EMAIL CONFIGURATION ---
+console.log("📧 SMTP Config - Host:", process.env.SMTP_HOST || 'smtp.gmail.com', "| Port:", process.env.SMTP_PORT || 587, "| User:", process.env.EMAIL_USER ? 'Set' : 'Missing');
+
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // true for 465, false for other ports
+    port: smtpPort,
+    secure: smtpPort === 465, // true for 465, false for other ports
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
