@@ -62,13 +62,21 @@ router.post(
             const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
             const mailOptions = {
-                from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>', // MUST be a verified sender in SendGrid
+                from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
                 to: user.email,
                 subject: 'Verify your email for Dewhitt App',
                 html: `
-                    <h3>Hello ${user.first_name},</h3>
-                    <p>Please verify your email by clicking the link below:</p>
-                    <a href="${verifyUrl}">Verify Email</a>
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #333;">Hello ${user.first_name},</h2>
+                        <p style="font-size: 16px; color: #555;">Thank you for signing up! Please verify your email address to activate your account.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${verifyUrl}" style="background-color: #007bff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Verify Email Address</a>
+                        </div>
+                        <p style="font-size: 14px; color: #888;">If the button above doesn't work, copy and paste this link into your browser:</p>
+                        <p style="font-size: 12px; color: #007bff; word-break: break-all;">${verifyUrl}</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                        <p style="font-size: 12px; color: #aaa;">This is an automated message, please do not reply.</p>
+                    </div>
                 `
             };
 
