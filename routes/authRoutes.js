@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
     secure: false, // false for 587, true for 465
     auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+        pass: process.env.SMTP_PASS,
     }
 });
 
@@ -62,7 +62,7 @@ router.post(
             const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
             const mailOptions = {
-                from: process.env.EMAIL_USER,
+                from: process.env.SMTP_FROM || 'noreply@dewhittdesigns.com', // MUST be a verified sender in SendGrid
                 to: user.email,
                 subject: 'Verify your email for Dewhitt App',
                 html: `
