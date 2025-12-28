@@ -45,7 +45,7 @@ router.post(
             const hashedPassword = await bcrypt.hash(password, salt);
 
             // Generate Verification Token
-            const verificationToken = crypto.randomBytes(20).toString({ encoding: 'hex' });
+            const verificationToken = crypto.randomBytes(20).toString('hex');
 
             // Create User (isVerified = false by default)
             user = await User.create({
@@ -81,13 +81,6 @@ router.post(
                 success: true,
                 message: 'Registration successful! (Check server logs if email did not arrive)'
             });
-
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ message: 'Server error during registration' });
-        }
-    }
-);
 
         } catch (err) {
             console.error(err);
