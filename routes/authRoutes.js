@@ -9,16 +9,13 @@ const User = require('../models/User');
 
 // --- 📧 EMAIL CONFIGURATION ---
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true, // true for port 465
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false, // false for 587, true for 465
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    logger: true,
-    debug: true,
-    family: 4
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+    }
 });
 
 // --- 1. REGISTER USER ---
