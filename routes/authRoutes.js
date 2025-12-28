@@ -11,10 +11,12 @@ const User = require('../models/User');
 // For testing, you can use Ethereal Email (https://ethereal.email)
 // For production, use SendGrid, Gmail, or AWS SES
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Or 'SendGrid', etc.
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false, // true for 465, false for other ports
     auth: {
-        user: process.env.EMAIL_USER, // Add to .env
-        pass: process.env.EMAIL_PASS  // Add to .env
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
     }
 });
 
