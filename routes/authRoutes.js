@@ -92,20 +92,27 @@ router.post(
 router.post('/verify-email', async (req, res) => {
     try {
         const { token } = req.body;
+        console.log("🔍 Received verification request with token:", token);
 
         const user = await User.findOne({ where: { verificationToken: token } });
 
-        if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+        if (!user) {
+            console.log("❌ No user found with that verification token.");
+            return res.status(400).json({ message: 'Invalid or expired token' });
+        }
+
+        console.log("✅ User found:", user.email, "Current isVerified status:", user.isVerified);
 
         // Verify User
         user.isVerified = true;
         user.verificationToken = null; // Clear token so it can't be reused
         await user.save();
 
+        console.log("🎉 Email verified successfully for:", user.email);
         res.json({ success: true, message: 'Email verified successfully! You can now log in.' });
 
     } catch (err) {
-        console.error(err);
+        console.error("🔥 Server error during verification:", err);
         res.status(500).json({ message: 'Server error during verification' });
     }
 });

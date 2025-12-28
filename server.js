@@ -29,9 +29,12 @@ app.use(helmet());
 
 app.use(cors({
     origin: [
-        'http://localhost:5173', 
+        'http://localhost:5173',
+        'http://127.0.0.1:5173', 
         'https://shiny-croquembouche-2237d6.netlify.app',
-        process.env.CLIENT_URL // Allow the URL from .env too
+        'https://dewhittdesigns.com',
+        'https://www.dewhittdesigns.com',
+        process.env.CLIENT_URL 
     ],
     credentials: true
 }));
