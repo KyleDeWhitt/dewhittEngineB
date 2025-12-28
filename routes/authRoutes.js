@@ -8,13 +8,8 @@ const nodemailer = require('nodemailer'); // ⚠️ You need to install this: np
 const User = require('../models/User');
 
 // --- 📧 EMAIL CONFIGURATION ---
-console.log("📧 SMTP Config - Host:", process.env.SMTP_HOST || 'smtp.gmail.com', "| Port:", process.env.SMTP_PORT || 587, "| User:", process.env.EMAIL_USER ? 'Set' : 'Missing');
-
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: smtpPort,
-    secure: smtpPort === 465, // true for 465, false for other ports
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -50,7 +45,7 @@ router.post(
             const hashedPassword = await bcrypt.hash(password, salt);
 
             // Generate Verification Token
-            const verificationToken = crypto.randomBytes(20).toString('hex');
+            const verificationToken = crypto.randomBytes(20).toString({ encoding: 'hex' });
 
             // Create User (isVerified = false by default)
             user = await User.create({
@@ -75,12 +70,24 @@ router.post(
                 `
             };
 
-            await transporter.sendMail(mailOptions);
+            try {
+                await transporter.sendMail(mailOptions);
+                console.log("✅ Verification email sent to:", user.email);
+            } catch (emailErr) {
+                console.error("⚠️ Email failed (User still registered):", emailErr.message);
+            }
 
             res.status(201).json({
                 success: true,
-                message: 'Registration successful! Please check your email to verify your account.'
+                message: 'Registration successful! (Check server logs if email did not arrive)'
             });
+
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ message: 'Server error during registration' });
+        }
+    }
+);
 
         } catch (err) {
             console.error(err);
