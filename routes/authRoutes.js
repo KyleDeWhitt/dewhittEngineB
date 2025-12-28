@@ -62,7 +62,7 @@ router.post(
             const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
             const mailOptions = {
-                from: process.env.SMTP_FROM || 'noreply@dewhittdesigns.com', // MUST be a verified sender in SendGrid
+                from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>', // MUST be a verified sender in SendGrid
                 to: user.email,
                 subject: 'Verify your email for Dewhitt App',
                 html: `
