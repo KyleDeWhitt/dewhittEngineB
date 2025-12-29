@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); // Built-in Node module for generating random tokens
 const nodemailer = require('nodemailer'); // ⚠️ You need to install this: npm install nodemailer
 const User = require('../models/User');
+const Project = require('../models/Project');
 
 // --- 📧 EMAIL CONFIGURATION ---
 const transporter = nodemailer.createTransport({
@@ -56,6 +57,15 @@ router.post(
                 email,
                 password: hashedPassword,
                 verificationToken
+            });
+
+            // Create Default Project for Dashboard
+            await Project.create({
+                userId: user.id,
+                name: 'Alpha Project',
+                status: 'Discovery',
+                progress: 10,
+                clientName: `${first_name} ${last_name}`
             });
 
             // Send Verification Email
