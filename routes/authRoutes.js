@@ -100,8 +100,25 @@ router.post(
 );
 
 // --- 2. VERIFY EMAIL ---
-// @route  GET /api/auth/verify-email
-// @desc   Verify user email via token
+// @route  GET /verify-email (Catch-all for browser clicks hitting Backend)
+router.get('/verify-email', (req, res) => {
+    // If the user hits this, CLIENT_URL is likely wrong in Render.
+    // We can try to redirect them to the frontend if we know the URL,
+    // or just show a helpful message.
+    res.send(`
+        <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h1>Redirecting...</h1>
+            <p>You reached the API server. We are sending you to the App.</p>
+            <script>
+                // Try to guess the frontend URL or use a hardcoded fallback
+                // Ideally, this should never happen if CLIENT_URL is correct.
+                window.location.href = "https://dewhittdesigns.com/verify-email?token=${req.query.token}";
+            </script>
+        </div>
+    `);
+});
+
+// @route  POST /api/auth/verify-email
 router.post('/verify-email', async (req, res) => {
     try {
         const { token } = req.body;
