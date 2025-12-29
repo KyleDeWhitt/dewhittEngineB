@@ -64,8 +64,7 @@ router.post(
                 userId: user.id,
                 name: 'Alpha Project',
                 status: 'Discovery',
-                progress: 10,
-                clientName: `${first_name} ${last_name}`
+                progress: 10
             });
 
             // Send Verification Email
