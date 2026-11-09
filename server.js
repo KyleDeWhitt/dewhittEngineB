@@ -11,12 +11,16 @@ const jwt = require('jsonwebtoken');
 const { connectDB, sequelize } = require('./config/database'); 
 const User = require('./models/User.js');  
 const Project = require('./models/Project.js');
+const WorkoutLog = require('./models/WorkoutLog.js');
+const DailyLog = require('./models/DailyLog.js');
+const FoodLog = require('./models/FoodLog.js');
 
 const { protect } = require('./middleware/auth'); 
 const userRoutes = require('./routes/userRoutes'); 
 const adminRoutes = require('./routes/adminRoutes');
 // 👇 NEW IMPORT
 const authRoutes = require('./routes/authRoutes');
+const fitnessRoutes = require('./routes/fitnessRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000; 
@@ -51,6 +55,12 @@ app.use(limiter);
 // ------------------------------------------------------------------
 User.hasOne(Project, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Project.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(WorkoutLog, { foreignKey: 'userId', onDelete: 'CASCADE' });
+WorkoutLog.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(DailyLog, { foreignKey: 'userId', onDelete: 'CASCADE' });
+DailyLog.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(FoodLog, { foreignKey: 'userId', onDelete: 'CASCADE' });
+FoodLog.belongsTo(User, { foreignKey: 'userId' });
 
 // ------------------------------------------------------------------
 // --- 3. STRIPE WEBHOOK ---
@@ -102,6 +112,9 @@ app.use(express.json());
 
 // 👇 NEW: Auth Routes (Login, Register, Verify Email)
 app.use('/api/auth', authRoutes);
+
+// 🏋️ Fitness Routes (Dashboard, Workouts, Daily Logs)
+app.use('/api/fitness', fitnessRoutes);
 
 // Stripe Checkout Session
 app.post('/api/create-checkout-session', protect, async (req, res, next) => {

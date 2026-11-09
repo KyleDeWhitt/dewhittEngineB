@@ -55,6 +55,44 @@ const User = sequelize.define('User', {
     currentPeriodEnd: {
         type: DataTypes.DATE,
         allowNull: true // When their current month expires
+    },
+
+    // --- 🏋️ FITNESS PROFILE FIELDS ---
+    height: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    currentWeight: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    goalWeight: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    startWeight: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    unit: {
+        type: DataTypes.ENUM('imperial', 'metric'),
+        defaultValue: 'imperial'
+    },
+    gender: {
+        type: DataTypes.ENUM('male', 'female'),
+        allowNull: true
+    },
+    age: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+    },
+    activityLevel: {
+        type: DataTypes.ENUM('sedentary', 'light', 'moderate', 'active', 'very'),
+        defaultValue: 'moderate'
+    },
+    goalType: {
+        type: DataTypes.ENUM('lose', 'build', 'maintain', 'endurance'),
+        defaultValue: 'build'
     }
 });
 

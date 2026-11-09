@@ -14,15 +14,18 @@ router.get('/profile', protect, async (req, res) => {
     try {
         // Fetch user data by the ID attached during JWT verification (req.user.id)
         const user = await User.findByPk(req.user.id, {
-            // Fetching core user fields
-            attributes: ['id', 'email', 'first_name', 'last_name', 'role', 'createdAt', 'updatedAt']
+            // Core fields + fitness profile fields
+            attributes: ['id', 'email', 'first_name', 'last_name', 'role', 'height', 'currentWeight', 'goalWeight', 'unit', 'gender', 'age', 'activityLevel', 'goalType', 'createdAt', 'updatedAt']
         });
 
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        res.status(200).json({ success: true, user });
+        // Onboarding is complete once the essentials are set
+        const profileComplete = !!(user.height && user.currentWeight && user.goalWeight && user.gender && user.age);
+
+        res.status(200).json({ success: true, user, profileComplete });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Failed to retrieve user data.' });
@@ -90,7 +93,7 @@ router.put('/profile', protect, async (req, res) => {
 // @access Private
 router.put('/setup-profile/:id', protect, async (req, res) => {
     const userId = req.user.id; // Get ID from JWT token (secure)
-    const { height, currentWeight, goalWeight, unit } = req.body;
+    const { height, currentWeight, goalWeight, startWeight, unit, gender, age, activityLevel, goalType } = req.body;
 
     // Security Check: Ensure user only updates their own profile
     if (parseInt(req.params.id) !== userId) {
@@ -105,10 +108,18 @@ router.put('/setup-profile/:id', protect, async (req, res) => {
         }
 
         // Update all the initial profile metrics
-        user.height = height;
-        user.currentWeight = currentWeight;
-        user.goalWeight = goalWeight;
-        user.unit = unit;
+        if (height !== undefined) user.height = height;
+        if (currentWeight !== undefined) user.currentWeight = currentWeight;
+        if (goalWeight !== undefined) user.goalWeight = goalWeight;
+        if (startWeight !== undefined) user.startWeight = startWeight;
+        if (unit !== undefined) user.unit = unit;
+        if (gender !== undefined) user.gender = gender;
+        if (age !== undefined) user.age = age;
+        if (activityLevel !== undefined) user.activityLevel = activityLevel;
+        if (goalType !== undefined) user.goalType = goalType;
+
+        // Default start weight to current weight on first setup
+        if (!user.startWeight && currentWeight) user.startWeight = currentWeight;
 
         await user.save();
 

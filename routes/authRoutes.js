@@ -4,20 +4,38 @@ const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); // Built-in Node module for generating random tokens
-const nodemailer = require('nodemailer'); // ⚠️ You need to install this: npm install nodemailer
 const User = require('../models/User');
 const Project = require('../models/Project');
 
 // --- 📧 EMAIL CONFIGURATION ---
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // false for 587, true for 465
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Dewhitt Fit <no-reply@dewhittdesigns.com>';
+
+// Resend sends email over HTTPS (port 443), which works on Render's free tier.
+// (Render's free tier blocks SMTP ports 25/465/587, so the old Gmail/nodemailer
+// setup would fail there. This is a drop-in replacement for `transporter`.)
+const transporter = {
+    sendMail: async ({ to, subject, html }) => {
+        const apiKey = process.env.RESEND_API_KEY;
+        if (!apiKey) {
+            console.error('RESEND_API_KEY is not set - skipping email to:', to);
+            return;
+        }
+
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ from: EMAIL_FROM, to, subject, html })
+        });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`Resend error (${response.status}): ${body}`);
+        }
     }
-});
+};
 
 // --- 1. REGISTER USER ---
 // @route  POST /api/auth/register
@@ -156,6 +174,66 @@ router.post('/verify-email', async (req, res) => {
     }
 });
 
+// --- 2. RESEND VERIFICATION EMAIL ---
+// @route  POST /api/auth/resend-verification
+// @desc   Resend email verification link
+router.post(
+    '/resend-verification',
+    [
+        body('email', 'Please include a valid email').isEmail()
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        try {
+            const { email } = req.body;
+
+            const user = await User.findOne({ where: { email } });
+            if (!user) {
+                return res.json({ success: true, message: 'If an account exists, a verification email has been sent.' });
+            }
+
+            if (user.isVerified) {
+                return res.status(400).json({ message: 'Email is already verified.' });
+            }
+
+            const verificationToken = crypto.randomBytes(20).toString('hex');
+            user.verificationToken = verificationToken;
+            await user.save();
+
+            const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+
+            const mailOptions = {
+                from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
+                to: user.email,
+                subject: 'Verify your email for Dewhitt App',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #333;">Hello ${user.first_name},</h2>
+                        <p style="font-size: 16px; color: #555;">You requested a new verification link. Please verify your email address to activate your account.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${verifyUrl}" style="background-color: #007bff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+                        </div>
+                        <p style="font-size: 14px; color: #888;">If you didn't request this, you can safely ignore this email.</p>
+                    </div>
+                `
+            };
+
+            await transporter.sendMail(mailOptions);
+
+            console.log(`📧 Resend verification email to: ${user.email}`);
+            res.json({ success: true, message: 'Verification email resent. Please check your inbox.' });
+
+        } catch (err) {
+            console.error("🔥 Server error during resend verification:", err);
+            res.status(500).json({ message: 'Server error during resend verification' });
+        }
+    }
+);
+
 // --- 3. LOGIN USER ---
 // @route  POST /api/auth/login
 // @desc   Authenticate user & get token
@@ -214,3 +292,63 @@ router.post(
 );
 
 module.exports = router;
+// --- 2. RESEND VERIFICATION EMAIL ---
+// @route  POST /api/auth/resend-verification
+// @desc   Resend email verification link
+router.post(
+    '/resend-verification',
+    [
+        body('email', 'Please include a valid email').isEmail()
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        try {
+            const { email } = req.body;
+
+            const user = await User.findOne({ where: { email } });
+            if (!user) {
+                return res.json({ success: true, message: 'If an account exists, a verification email has been sent.' });
+            }
+
+            if (user.isVerified) {
+                return res.status(400).json({ message: 'Email is already verified.' });
+            }
+
+            const verificationToken = crypto.randomBytes(20).toString('hex');
+            user.verificationToken = verificationToken;
+            await user.save();
+
+            const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+
+            const mailOptions = {
+                from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
+                to: user.email,
+                subject: 'Verify your email for Dewhitt App',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #333;">Hello ${user.first_name},</h2>
+                        <p style="font-size: 16px; color: #555;">You requested a new verification link. Please verify your email address to activate your account.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${verifyUrl}" style="background-color: #007bff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+                        </div>
+                        <p style="font-size: 14px; color: #888;">If you didn't request this, you can safely ignore this email.</p>
+                    </div>
+                `
+            };
+
+            await transporter.sendMail(mailOptions);
+
+            console.log(`?? Resend verification email to: ${user.email}`);
+            res.json({ success: true, message: 'Verification email resent. Please check your inbox.' });
+
+        } catch (err) {
+            console.error("?? Server error during resend verification:", err);
+            res.status(500).json({ message: 'Server error during resend verification' });
+        }
+    }
+);
+
