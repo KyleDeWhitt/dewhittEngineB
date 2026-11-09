@@ -1,6 +1,8 @@
 require('dotenv').config(); 
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY
+    ? require('stripe')(process.env.STRIPE_SECRET_KEY)
+    : null;
 const express = require('express');
 const cors = require('cors'); 
 const helmet = require('helmet'); 
@@ -66,6 +68,7 @@ FoodLog.belongsTo(User, { foreignKey: 'userId' });
 // --- 3. STRIPE WEBHOOK ---
 // ------------------------------------------------------------------
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!stripe) return res.status(503).send('Stripe is not configured on this server.');
     const sig = req.headers['stripe-signature'];
     let event;
 
@@ -118,6 +121,7 @@ app.use('/api/fitness', fitnessRoutes);
 
 // Stripe Checkout Session
 app.post('/api/create-checkout-session', protect, async (req, res, next) => {
+    if (!stripe) return res.status(503).json({ success: false, message: 'Stripe is not configured on this server.' });
     try {
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
