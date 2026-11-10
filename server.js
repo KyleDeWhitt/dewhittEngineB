@@ -40,6 +40,10 @@ app.use(cors({
         'https://shiny-croquembouche-2237d6.netlify.app',
         'https://dewhittdesigns.com',
         'https://www.dewhittdesigns.com',
+        // 👇 Capacitor native app origins (Android WebView + iOS)
+        'http://localhost',
+        'https://localhost',
+        'capacitor://localhost',
         process.env.CLIENT_URL 
     ],
     credentials: true
