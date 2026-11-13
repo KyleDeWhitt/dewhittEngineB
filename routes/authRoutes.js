@@ -55,7 +55,7 @@ router.post(
         }
 
         try {
-            const { email, password, first_name, last_name } = req.body;
+            const { email, password, first_name, last_name, app } = req.body;
 
             // Check if user exists
             let user = await User.findOne({ where: { email } });
@@ -77,16 +77,19 @@ router.post(
                 verificationToken
             });
 
-            // Create Default Project for Dashboard
-            await Project.create({
-                userId: user.id,
-                name: 'Alpha Project',
-                status: 'Discovery',
-                progress: 10
-            });
+            // Create Default Project for the design dashboard only — fitness users don't get a design project.
+            if (app !== 'fit') {
+                await Project.create({
+                    userId: user.id,
+                    name: 'Alpha Project',
+                    status: 'Discovery',
+                    progress: 10
+                });
+            }
 
-            // Send Verification Email
-            const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+            // Send Verification Email (fitness registrations verify on /fit/verify-email)
+            const verifyPath = app === 'fit' ? '/fit/verify-email' : '/verify-email';
+            const verifyUrl = `${process.env.CLIENT_URL}${verifyPath}?token=${verificationToken}&app=${app === 'fit' ? 'fit' : 'design'}`;
 
             const mailOptions = {
                 from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
@@ -139,7 +142,7 @@ router.get('/verify-email', (req, res) => {
             <script>
                 // Try to guess the frontend URL or use a hardcoded fallback
                 // Ideally, this should never happen if CLIENT_URL is correct.
-                window.location.href = "https://dewhittdesigns.com/verify-email?token=${req.query.token}";
+                window.location.href = "https://dewhittdesigns.com${req.query.app === 'fit' ? '/fit/verify-email' : '/verify-email'}?token=${req.query.token}";
             </script>
         </div>
     `);
@@ -189,7 +192,7 @@ router.post(
         }
 
         try {
-            const { email } = req.body;
+            const { email, app } = req.body;
 
             const user = await User.findOne({ where: { email } });
             if (!user) {
@@ -204,7 +207,8 @@ router.post(
             user.verificationToken = verificationToken;
             await user.save();
 
-            const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+            const verifyPath = app === 'fit' ? '/fit/verify-email' : '/verify-email';
+            const verifyUrl = `${process.env.CLIENT_URL}${verifyPath}?token=${verificationToken}&app=${app === 'fit' ? 'fit' : 'design'}`;
 
             const mailOptions = {
                 from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
@@ -307,7 +311,7 @@ router.post(
         }
 
         try {
-            const { email } = req.body;
+            const { email, app } = req.body;
 
             const user = await User.findOne({ where: { email } });
             if (!user) {
@@ -322,7 +326,8 @@ router.post(
             user.verificationToken = verificationToken;
             await user.save();
 
-            const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+            const verifyPath = app === 'fit' ? '/fit/verify-email' : '/verify-email';
+            const verifyUrl = `${process.env.CLIENT_URL}${verifyPath}?token=${verificationToken}&app=${app === 'fit' ? 'fit' : 'design'}`;
 
             const mailOptions = {
                 from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
