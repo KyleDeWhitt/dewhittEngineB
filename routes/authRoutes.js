@@ -37,6 +37,25 @@ const transporter = {
     }
 };
 
+// --- 🧭 WHICH APP IS THIS ACCOUNT FOR? (DeWhitt Designs vs DeWhitt Fit) ---
+// The Capacitor (Android/iOS) Fit app always calls the API from one of these origins.
+const NATIVE_APP_ORIGINS = ['http://localhost', 'https://localhost', 'capacitor://localhost'];
+const APPS = ['design', 'fit'];
+
+// Order: what the account signed up with > what the client says > native-app origin > design.
+const resolveApp = (req, user) => {
+    if (user && APPS.includes(user.signupApp)) return user.signupApp;
+    const requested = req.body && req.body.app;
+    if (APPS.includes(requested)) return requested;
+    if (NATIVE_APP_ORIGINS.includes(req.get('origin'))) return 'fit';
+    return 'design';
+};
+
+const buildVerifyUrl = (appName, token) => {
+    const verifyPath = appName === 'fit' ? '/fit/verify-email' : '/verify-email';
+    return `${process.env.CLIENT_URL}${verifyPath}?token=${token}&app=${appName}`;
+};
+
 // --- 1. REGISTER USER ---
 // @route  POST /api/auth/register
 // @desc   Register user & send verification email
@@ -55,7 +74,8 @@ router.post(
         }
 
         try {
-            const { email, password, first_name, last_name, app } = req.body;
+            const { email, password, first_name, last_name } = req.body;
+            const appName = resolveApp(req);
 
             // Check if user exists
             let user = await User.findOne({ where: { email } });
@@ -74,11 +94,12 @@ router.post(
                 last_name,
                 email,
                 password: hashedPassword,
-                verificationToken
+                verificationToken,
+                signupApp: appName
             });
 
             // Create Default Project for the design dashboard only — fitness users don't get a design project.
-            if (app !== 'fit') {
+            if (appName !== 'fit') {
                 await Project.create({
                     userId: user.id,
                     name: 'Alpha Project',
@@ -88,8 +109,8 @@ router.post(
             }
 
             // Send Verification Email (fitness registrations verify on /fit/verify-email)
-            const verifyPath = app === 'fit' ? '/fit/verify-email' : '/verify-email';
-            const verifyUrl = `${process.env.CLIENT_URL}${verifyPath}?token=${verificationToken}&app=${app === 'fit' ? 'fit' : 'design'}`;
+            const verifyUrl = buildVerifyUrl(appName, verificationToken);
+            console.log(`📝 Register (${appName}) origin=${req.get('origin') || 'none'} bodyApp=${req.body.app || 'none'}`);
 
             const mailOptions = {
                 from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
@@ -169,7 +190,9 @@ router.post('/verify-email', async (req, res) => {
         await user.save();
 
         console.log("🎉 Email verified successfully for:", user.email);
-        res.json({ success: true, message: 'Email verified successfully! You can now log in.' });
+        // `app` tells the frontend which login to send them to (a Fit account
+        // opening an old design-style link still lands on the Fit login).
+        res.json({ success: true, message: 'Email verified successfully! You can now log in.', app: user.signupApp || 'design' });
 
     } catch (err) {
         console.error("🔥 Server error during verification:", err);
@@ -192,7 +215,7 @@ router.post(
         }
 
         try {
-            const { email, app } = req.body;
+            const { email } = req.body;
 
             const user = await User.findOne({ where: { email } });
             if (!user) {
@@ -205,10 +228,11 @@ router.post(
 
             const verificationToken = crypto.randomBytes(20).toString('hex');
             user.verificationToken = verificationToken;
+            // Older accounts have no signupApp yet — record it from this request.
+            if (!user.signupApp) user.signupApp = resolveApp(req);
             await user.save();
 
-            const verifyPath = app === 'fit' ? '/fit/verify-email' : '/verify-email';
-            const verifyUrl = `${process.env.CLIENT_URL}${verifyPath}?token=${verificationToken}&app=${app === 'fit' ? 'fit' : 'design'}`;
+            const verifyUrl = buildVerifyUrl(resolveApp(req, user), verificationToken);
 
             const mailOptions = {
                 from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
@@ -296,64 +320,3 @@ router.post(
 );
 
 module.exports = router;
-// --- 2. RESEND VERIFICATION EMAIL ---
-// @route  POST /api/auth/resend-verification
-// @desc   Resend email verification link
-router.post(
-    '/resend-verification',
-    [
-        body('email', 'Please include a valid email').isEmail()
-    ],
-    async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({ errors: errors.array() });
-        }
-
-        try {
-            const { email, app } = req.body;
-
-            const user = await User.findOne({ where: { email } });
-            if (!user) {
-                return res.json({ success: true, message: 'If an account exists, a verification email has been sent.' });
-            }
-
-            if (user.isVerified) {
-                return res.status(400).json({ message: 'Email is already verified.' });
-            }
-
-            const verificationToken = crypto.randomBytes(20).toString('hex');
-            user.verificationToken = verificationToken;
-            await user.save();
-
-            const verifyPath = app === 'fit' ? '/fit/verify-email' : '/verify-email';
-            const verifyUrl = `${process.env.CLIENT_URL}${verifyPath}?token=${verificationToken}&app=${app === 'fit' ? 'fit' : 'design'}`;
-
-            const mailOptions = {
-                from: process.env.SMTP_FROM || '"Dewhitt App" <noreply@dewhittdesigns.com>',
-                to: user.email,
-                subject: 'Verify your email for Dewhitt App',
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #333;">Hello ${user.first_name},</h2>
-                        <p style="font-size: 16px; color: #555;">You requested a new verification link. Please verify your email address to activate your account.</p>
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="${verifyUrl}" style="background-color: #007bff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px;">Verify Email</a>
-                        </div>
-                        <p style="font-size: 14px; color: #888;">If you didn't request this, you can safely ignore this email.</p>
-                    </div>
-                `
-            };
-
-            await transporter.sendMail(mailOptions);
-
-            console.log(`?? Resend verification email to: ${user.email}`);
-            res.json({ success: true, message: 'Verification email resent. Please check your inbox.' });
-
-        } catch (err) {
-            console.error("?? Server error during resend verification:", err);
-            res.status(500).json({ message: 'Server error during resend verification' });
-        }
-    }
-);
-

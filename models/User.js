@@ -39,6 +39,12 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         defaultValue: 'Member'
     },
+    // Which product the account signed up through: DeWhitt Designs or DeWhitt Fit.
+    // Decides verify-email links and where users land after verifying.
+    signupApp: {
+        type: DataTypes.STRING(16),
+        allowNull: true // null = older account, treated as 'design'
+    },
     // --- 💰 NEW MEMBERSHIP FIELDS ---
     subscriptionStatus: {
         type: DataTypes.ENUM('active', 'inactive', 'past_due', 'canceled'),
